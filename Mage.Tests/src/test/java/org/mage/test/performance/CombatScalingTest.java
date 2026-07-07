@@ -68,4 +68,7 @@ public class CombatScalingTest extends CardTestPlayerBase {
     @Test public void scale_0250() { runScenario(250); }
     @Test public void scale_0500() { runScenario(500); }
     @Test public void scale_1000() { runScenario(1000); }
+    @Test public void scale_2000() { runScenario(2000); }
+    @Test public void scale_4000() { runScenario(4000); }
+    @Test public void scale_8000() { runScenario(8000); }
 }
