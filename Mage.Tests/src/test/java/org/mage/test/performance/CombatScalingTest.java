@@ -2,7 +2,9 @@ package org.mage.test.performance;
 
 import mage.constants.PhaseStep;
 import mage.constants.Zone;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
 import org.mage.test.serverside.base.CardTestPlayerBase;
 
 /**
@@ -25,6 +27,7 @@ import org.mage.test.serverside.base.CardTestPlayerBase;
  *   mvn -pl Mage.Tests test -Dtest=CombatScalingTest#scale_0100
  *   mvn -pl Mage.Tests test -Dtest=CombatScalingTest -DargLine="-Xmx6g"
  */
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class CombatScalingTest extends CardTestPlayerBase {
 
     private void runScenario(int n) {
@@ -34,12 +37,19 @@ public class CombatScalingTest extends CardTestPlayerBase {
         // attacker/blocker names don't collide when declaring.
         addCard(Zone.BATTLEFIELD, playerB, "Silvercoat Lion", n);
 
-        // Declare all N attackers, then all N blockers (1 blocker : 1 attacker).
+        // Declaration idiom (matches XMage TestPlayer semantics):
+        //  - Attackers: repeat attack(...,"Grizzly Bears"). selectAttackers' filter
+        //    EXCLUDES already-declared attackers, so a fixed ":index" would shrink and
+        //    skip creatures; repeating the bare name makes each call consume the NEXT
+        //    available attacker -> N calls declare N distinct attackers.
+        //  - Blockers: selectBlockers does NOT exclude already-blocking creatures, so
+        //    address a DISTINCT blocker per call via "Name:index"; the attacker is
+        //    referenced by its stable index among attacking creatures.
         for (int i = 0; i < n; i++) {
             attack(1, playerA, "Grizzly Bears");
         }
         for (int i = 0; i < n; i++) {
-            block(1, playerB, "Silvercoat Lion", "Grizzly Bears");
+            block(1, playerB, "Silvercoat Lion:" + i, "Grizzly Bears:" + i);
         }
 
         setStopAt(1, PhaseStep.END_COMBAT);
@@ -50,6 +60,8 @@ public class CombatScalingTest extends CardTestPlayerBase {
         System.out.println("[SCALING] n=" + n + " combat_ms=" + ms);
     }
 
+    @Test public void scale_0002() { runScenario(2); }
+    @Test public void scale_0003() { runScenario(3); }
     @Test public void scale_0010() { runScenario(10); }
     @Test public void scale_0050() { runScenario(50); }
     @Test public void scale_0100() { runScenario(100); }
