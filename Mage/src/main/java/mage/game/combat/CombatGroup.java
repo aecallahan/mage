@@ -670,18 +670,12 @@ public class CombatGroup implements Serializable, Copyable<CombatGroup> {
             return blockWasLegal;
         }
 
-        // collect possible blockers
-        Map<UUID, Set<UUID>> possibleBlockers = new HashMap<>();
-        for (UUID attackerId : attackers) {
-            Permanent attacker = game.getPermanent(attackerId);
-            Set<UUID> goodBlockers = new HashSet<>();
-            for (Permanent blocker : game.getBattlefield().getActivePermanents(StaticFilters.FILTER_PERMANENT_CREATURES_CONTROLLED, defender.getId(), game)) {
-                if (blocker.canBlock(attackerId, game)) {
-                    goodBlockers.add(blocker.getId());
-                }
-            }
-            possibleBlockers.put(attacker.getId(), goodBlockers);
-        }
+        // The count of creatures that could legally block a given attacker is only
+        // needed for the rare "can't be blocked except by N or more creatures"
+        // restriction handled below. Building it up front for every attacker cost a
+        // full battlefield scan per attacker -- O(attackers * creatures), which
+        // dominates large combats. It is now computed lazily, only for attackers
+        // that actually carry that restriction (see the getMinBlockedBy() branch).
 
         for (UUID uuid : attackers) {
             Permanent attacker = game.getPermanent(uuid);
@@ -699,7 +693,13 @@ public class CombatGroup implements Serializable, Copyable<CombatGroup> {
 
                     // if there aren't any possible blocker configuration then it's legal due mtg rules
                     // warning, it's affect AI related logic like other block auto-fixes does, see https://github.com/magefree/mage/pull/13182
-                    if (attacker.getMinBlockedBy() <= possibleBlockers.getOrDefault(attacker.getId(), Collections.emptySet()).size()) {
+                    int possibleBlockerCount = 0;
+                    for (Permanent blocker : game.getBattlefield().getActivePermanents(StaticFilters.FILTER_PERMANENT_CREATURES_CONTROLLED, defender.getId(), game)) {
+                        if (blocker.canBlock(uuid, game)) {
+                            possibleBlockerCount++;
+                        }
+                    }
+                    if (attacker.getMinBlockedBy() <= possibleBlockerCount) {
                         blockWasLegal = false;
                     }
                 }
